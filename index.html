@@ -24,23 +24,23 @@ section{padding:6.5rem 5vw}
 #sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:1.8rem;margin-top:3rem}
 .sc{background:var(--bg3);border-radius:16px;border:2px solid rgba(255,255,255,.16);overflow:hidden;cursor:pointer;transition:transform .3s cubic-bezier(.2,.8,.2,1),box-shadow .3s,border-color .3s}
 .sc:hover{transform:translateY(-6px);border-color:var(--bl2);box-shadow:0 20px 45px rgba(0,0,0,.35)}
-.sthumb{width:100%;aspect-ratio:9/16;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background-size:cover;background-position:center}
+.sthumb{width:100%;aspect-ratio:9/16;position:relative;overflow:hidden;background-size:cover;background-position:center}
 @media(max-width:480px){#sgrid{grid-template-columns:repeat(2,1fr);gap:1rem}}
 #lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.8rem;margin-top:3rem}
 .lc{background:var(--bg3);border-radius:16px;border:2px solid rgba(255,255,255,.16);overflow:hidden;cursor:pointer;transition:transform .3s cubic-bezier(.2,.8,.2,1),box-shadow .3s,border-color .3s}
 .lc:hover{transform:translateY(-6px);border-color:var(--or);box-shadow:0 20px 45px rgba(0,0,0,.35)}
-.lthumb{width:100%;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background-size:cover;background-position:center}
+.lthumb{width:100%;aspect-ratio:16/9;position:relative;overflow:hidden;background-size:cover;background-position:center}
 .lmeta{padding:1.1rem 1.3rem}
 .ltitle{font-family:'Space Grotesk',sans-serif;font-size:.92rem;font-weight:600;color:var(--tx)}
 .ltype{font-family:'Space Grotesk',sans-serif;font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--or);margin-top:.3rem}
 @media(max-width:480px){#lgrid{grid-template-columns:1fr}}
-.thumb-overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.45) 100%);pointer-events:none}
-.pplay{position:relative;z-index:2;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:transform .3s cubic-bezier(.2,.8,.2,1);box-shadow:0 6px 20px rgba(0,0,0,.45)}
-.sc:hover .pplay,.lc:hover .pplay{transform:scale(1.1)}
+.thumb-overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.45) 100%);pointer-events:none;z-index:1}
+.pplay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:transform .3s cubic-bezier(.2,.8,.2,1);box-shadow:0 6px 20px rgba(0,0,0,.45)}
+.sc:hover .pplay,.lc:hover .pplay{transform:translate(-50%,-50%) scale(1.1)}
 .pplay svg{width:19px;height:19px;fill:#fff;margin-left:3px}
-.vid-wrap{position:relative;width:100%;height:100%;cursor:pointer}
-.vid-wrap video{width:100%;height:100%;object-fit:cover;display:block;background:#000}
-.vid-tap-icon{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);width:60px;height:60px;border-radius:50%;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;pointer-events:none;transition:transform .15s ease,opacity .25s ease;opacity:0}
+.vid-wrap{position:absolute;inset:0}
+.vid-wrap video{width:100%;height:100%;object-fit:cover;display:block}
+.vid-tap-icon{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);width:60px;height:60px;border-radius:50%;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;pointer-events:none;transition:transform .15s ease,opacity .25s ease;opacity:0;z-index:3}
 .vid-tap-icon.show{transform:translate(-50%,-50%) scale(1);opacity:1}
 .vid-tap-icon svg{width:22px;height:22px;fill:#fff}
 .rv{opacity:0;transform:translateY(20px);transition:opacity .65s ease,transform .65s ease}
@@ -78,17 +78,25 @@ section{padding:6.5rem 5vw}
 </section>
 
 <script>
-function playInline(thumbEl, src) {
+function playInline(thumbEl, src, poster) {
   if (thumbEl.querySelector('video')) return;
-  thumbEl.innerHTML = '';
-  const wrap = document.createElement('div');
-  wrap.className = 'vid-wrap';
+
+  // Keep poster visible while loading
   const vid = document.createElement('video');
   vid.src = src;
   vid.preload = 'auto';
-  vid.autoplay = true;
   vid.playsinline = true;
   vid.controls = false;
+  vid.muted = false;
+  if (poster) vid.poster = poster;
+  vid.style.opacity = '0';
+  vid.style.transition = 'opacity .35s ease';
+  vid.style.position = 'absolute';
+  vid.style.inset = '0';
+  vid.style.width = '100%';
+  vid.style.height = '100%';
+  vid.style.objectFit = 'cover';
+
   const icon = document.createElement('div');
   icon.className = 'vid-tap-icon';
   const playSVG = '<svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="#fff"/></svg>';
@@ -100,14 +108,24 @@ function playInline(thumbEl, src) {
     clearTimeout(iconTimer);
     iconTimer = setTimeout(() => icon.classList.remove('show'), 600);
   }
-  wrap.addEventListener('click', () => {
+
+  // Show video only when ready — no blank flash
+  vid.addEventListener('canplay', () => {
+    vid.style.opacity = '1';
+    vid.play().catch(()=>{});
+    // Hide play button once video starts
+    const btn = thumbEl.querySelector('.pplay');
+    if (btn) btn.style.display = 'none';
+  });
+
+  thumbEl.addEventListener('click', () => {
     if (vid.paused) { vid.play(); flashIcon(playSVG); }
     else { vid.pause(); flashIcon(pauseSVG); }
   });
-  wrap.appendChild(vid);
-  wrap.appendChild(icon);
-  thumbEl.appendChild(wrap);
-  thumbEl.style.background = '#000';
+
+  thumbEl.appendChild(vid);
+  thumbEl.appendChild(icon);
+  vid.load();
 }
 
 function buildCard(container, v) {
@@ -132,7 +150,7 @@ function buildCard(container, v) {
   thumb.appendChild(btn);
   el.appendChild(thumb);
   container.appendChild(el);
-  thumb.addEventListener('click', () => playInline(thumb, v.video));
+  thumb.addEventListener('click', () => playInline(thumb, v.video, v.poster));
   return el;
 }
 
@@ -162,7 +180,7 @@ function buildLongCard(container, v) {
   el.appendChild(thumb);
   el.appendChild(meta);
   container.appendChild(el);
-  thumb.addEventListener('click', () => playInline(thumb, v.video));
+  thumb.addEventListener('click', () => playInline(thumb, v.video, v.poster));
   return el;
 }
 
@@ -199,4 +217,3 @@ document.getElementById('ticker').innerHTML=th;
 </script>
 </body>
 </html>
-
