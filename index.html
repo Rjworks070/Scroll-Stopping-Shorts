@@ -35,12 +35,12 @@ section{padding:6.5rem 5vw}
 .ltype{font-family:'Space Grotesk',sans-serif;font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--or);margin-top:.3rem}
 @media(max-width:480px){#lgrid{grid-template-columns:1fr}}
 .thumb-overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.05) 0%,rgba(0,0,0,.45) 100%);pointer-events:none;z-index:1}
-.pplay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:transform .3s cubic-bezier(.2,.8,.2,1);box-shadow:0 6px 20px rgba(0,0,0,.45)}
+.pplay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(0,0,0,.45);transition:transform .3s cubic-bezier(.2,.8,.2,1)}
 .sc:hover .pplay,.lc:hover .pplay{transform:translate(-50%,-50%) scale(1.1)}
 .pplay svg{width:19px;height:19px;fill:#fff;margin-left:3px}
-.vid-wrap{position:absolute;inset:0}
-.vid-wrap video{width:100%;height:100%;object-fit:cover;display:block}
-.vid-tap-icon{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);width:60px;height:60px;border-radius:50%;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;pointer-events:none;transition:transform .15s ease,opacity .25s ease;opacity:0;z-index:3}
+.vid-el{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s ease;z-index:3}
+.vid-el.ready{opacity:1}
+.vid-tap-icon{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);width:60px;height:60px;border-radius:50%;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;pointer-events:none;transition:transform .15s ease,opacity .25s ease;opacity:0;z-index:4}
 .vid-tap-icon.show{transform:translate(-50%,-50%) scale(1);opacity:1}
 .vid-tap-icon svg{width:22px;height:22px;fill:#fff}
 .rv{opacity:0;transform:translateY(20px);transition:opacity .65s ease,transform .65s ease}
@@ -78,29 +78,21 @@ section{padding:6.5rem 5vw}
 </section>
 
 <script>
-function playInline(thumbEl, src, poster) {
+function playInline(thumbEl, src) {
   if (thumbEl.querySelector('video')) return;
 
-  // Keep poster visible while loading
   const vid = document.createElement('video');
   vid.src = src;
   vid.preload = 'auto';
   vid.playsinline = true;
   vid.controls = false;
-  vid.muted = false;
-  if (poster) vid.poster = poster;
-  vid.style.opacity = '0';
-  vid.style.transition = 'opacity .35s ease';
-  vid.style.position = 'absolute';
-  vid.style.inset = '0';
-  vid.style.width = '100%';
-  vid.style.height = '100%';
-  vid.style.objectFit = 'cover';
+  vid.className = 'vid-el'; // opacity:0 by default, poster background shows through
 
   const icon = document.createElement('div');
   icon.className = 'vid-tap-icon';
   const playSVG = '<svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="#fff"/></svg>';
   const pauseSVG = '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" fill="#fff"/><rect x="14" y="4" width="4" height="16" fill="#fff"/></svg>';
+
   let iconTimer;
   function flashIcon(svg) {
     icon.innerHTML = svg;
@@ -109,23 +101,22 @@ function playInline(thumbEl, src, poster) {
     iconTimer = setTimeout(() => icon.classList.remove('show'), 600);
   }
 
-  // Show video only when ready — no blank flash
+  // Jab video ready ho tabhi dikhao — poster background tab tak dikh raha hai
   vid.addEventListener('canplay', () => {
-    vid.style.opacity = '1';
+    vid.classList.add('ready'); // fade in
     vid.play().catch(()=>{});
-    // Hide play button once video starts
     const btn = thumbEl.querySelector('.pplay');
-    if (btn) btn.style.display = 'none';
+    if (btn) btn.style.opacity = '0';
   });
 
   thumbEl.addEventListener('click', () => {
+    if (!vid.classList.contains('ready')) return;
     if (vid.paused) { vid.play(); flashIcon(playSVG); }
     else { vid.pause(); flashIcon(pauseSVG); }
   });
 
   thumbEl.appendChild(vid);
   thumbEl.appendChild(icon);
-  vid.load();
 }
 
 function buildCard(container, v) {
@@ -133,13 +124,9 @@ function buildCard(container, v) {
   el.className = 'sc rv';
   const thumb = document.createElement('div');
   thumb.className = 'sthumb';
-  if (v.poster) {
-    thumb.style.backgroundImage = 'url(' + v.poster + ')';
-    thumb.style.backgroundSize = 'cover';
-    thumb.style.backgroundPosition = 'center';
-  } else {
-    thumb.style.background = '#15192b';
-  }
+  thumb.style.backgroundImage = 'url(' + v.poster + ')';
+  thumb.style.backgroundSize = 'cover';
+  thumb.style.backgroundPosition = 'center';
   const overlay = document.createElement('div');
   overlay.className = 'thumb-overlay';
   const btn = document.createElement('div');
@@ -150,7 +137,7 @@ function buildCard(container, v) {
   thumb.appendChild(btn);
   el.appendChild(thumb);
   container.appendChild(el);
-  thumb.addEventListener('click', () => playInline(thumb, v.video, v.poster));
+  thumb.addEventListener('click', () => playInline(thumb, v.video));
   return el;
 }
 
@@ -159,13 +146,9 @@ function buildLongCard(container, v) {
   el.className = 'lc rv';
   const thumb = document.createElement('div');
   thumb.className = 'lthumb';
-  if (v.poster) {
-    thumb.style.backgroundImage = 'url(' + v.poster + ')';
-    thumb.style.backgroundSize = 'cover';
-    thumb.style.backgroundPosition = 'center';
-  } else {
-    thumb.style.background = '#15192b';
-  }
+  thumb.style.backgroundImage = 'url(' + v.poster + ')';
+  thumb.style.backgroundSize = 'cover';
+  thumb.style.backgroundPosition = 'center';
   const overlay = document.createElement('div');
   overlay.className = 'thumb-overlay';
   const btn = document.createElement('div');
@@ -180,7 +163,7 @@ function buildLongCard(container, v) {
   el.appendChild(thumb);
   el.appendChild(meta);
   container.appendChild(el);
-  thumb.addEventListener('click', () => playInline(thumb, v.video, v.poster));
+  thumb.addEventListener('click', () => playInline(thumb, v.video));
   return el;
 }
 
